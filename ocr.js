@@ -18,4 +18,50 @@ var ocrDemo = {
                     ctx.stroke();
                 }
     },
+    onMouseMove: function(e, ctx, canvas){
+        if(!canvas.isDrawing){
+            return;
+        }
+        this.fillSquare(ctx,
+            e.clientX - canvas.offsetLeft, e.clientY-canvas.offsetTop);
+    },
+    onMouseDown: function(e ,ctx, canvas){
+        canvas.isDrawing = true;
+        this.fillSquare(ctx,
+            e.clientX-canvas.offsetLeft, e.clientY-canvas.offsetTop);
+    },
+    onMouseUp: function(e, ctx, canvas){
+        canvas.isDrawing = false;
+    },
+    fillSquare: function(ctx, x, y){
+        var xPixel = Math.floor(x/this.PIXEL_WIDTH);
+        var yPixel = Math.floor(y/this.PIXEL_WIDTH);
+        this.data[((xPixel -1) * this.TRANSLATED_WIDTH + yPixel) -1] =1;
+
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(xPixel * this.PIXEL_WIDTH, yPixel * this.PIXEL_WIDTH,
+            this.PIXEL_WIDTH, this.PIXEL_WIDTH);
+    },
+    train: function(){
+        var digitVal = document.getElementById("digit").ariaValueMax;
+        if(!digitVal || this.data.indexOf(1) < 0){
+            alert("Please type and draw a digit value in order to train the network");
+            return;
+        }
+        this.trainArray.push({"y0": this.data, "label": parseInt(digitVal)});
+        this.trainingRequestCount++;
+
+        //send training batch to server
+        if (this.trainingRequestCount == this.BATCH_SIZE){
+            alert("Sending training data to server...");
+            var json = {
+                trainArray: this.trainArray,
+                train: true
+            };
+            this.sendData(json);
+            this.trainingRequestCount = 0;
+            this.trainArray = [];
+        }
+    },
+    
 }
