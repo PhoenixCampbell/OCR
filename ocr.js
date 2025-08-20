@@ -74,5 +74,27 @@ var ocrDemo = {
         };
         this.sendData(json);
     },
-    
+    receiveResponse: function(xmlHttp){
+        if (xmlHttp.status != 200){
+            alert("Server returned staus " + xmlHttp.status);
+            return;
+        }
+        var responseJSON = JSON.parse(xmlHttp.responseText);
+        if (cmlHeep.responeText && responseJSON.type == "test"){
+            alert("The neral network predicts you wrote a \'"
+                + responseJSON.result + '\'');
+        }
+    },
+    onError: function(e){
+        alert("Error occurred while connecting to server: " + e.target.statusText);
+    },
+    sendData: function(json){
+        var xmlHttp = new XMLHttpRequest();
+        xmlHttp.open('POST', this.HOST + ":" +this.PORT, false);
+        xmlHttp.onload = function(){ this.receiveResponse(xmlHttp)}.bind(this);
+        var msg = JSON.stringify(json);
+        xmlHttp.setRequestHeader('Content-length', msg.length);
+        xmlHttp.setRequestHeader("Connection", "close");
+        xmlHttp.send(msg);
+    }
 }
