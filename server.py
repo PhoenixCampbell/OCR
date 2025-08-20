@@ -1,4 +1,3 @@
-# server.py
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 import json, traceback, os
 import numpy as np

@@ -1,0 +1,11 @@
+/* Soft green flash overlay */
+#flash-overlay{
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 255, 0, 0.20);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 180ms ease-in-out;
+  z-index: 9999;
+}
+#flash-overlay.on { opacity: 1; }
