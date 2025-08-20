@@ -82,16 +82,28 @@ const ocrDemo = (() => {
     alert('Trained 1 sample');
   }
 
-  async function test() {
-    const pixels = get20x20();
-    const res = await fetch('/ocr', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ predict: true, image: pixels })
-    });
-    const json = await res.json();
-    alert('Prediction: ' + json.result);
-  }
+async function test() {
+  const API = 'http://127.0.0.1:8000/ocr';
+  const pixels = get20x20();
+  const res = await fetch(API, {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ predict:true, image:pixels })
+});
 
+  let text = await res.text();      // read as text first for debugging
+  try {
+       const json = JSON.parse(text);
+       if (!res.ok || json.ok === false) {
+         alert('Server error:\n' + (json.error || res.status + ' ' + res.statusText));
+         console.error(json.trace || '');
+         return;
+       }
+       alert('Prediction: ' + json.result);
+  } catch (e) {
+       console.error('Non-JSON response:', text);
+       alert('Bad response from server (see console)');
+  }
+}
   return { onLoadFunction, train, test, resetCanvas };
 })();
