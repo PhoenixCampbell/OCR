@@ -63,5 +63,16 @@ var ocrDemo = {
             this.trainArray = [];
         }
     },
+    test: function(){
+        if (this.data.indexOf(1) < 0){
+            alert("Please draw a digit in order to test the network");
+            return;
+        }
+        var json = {
+            image: this.data,
+            predict: true
+        };
+        this.sendData(json);
+    },
     
 }
