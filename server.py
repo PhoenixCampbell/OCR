@@ -10,12 +10,11 @@ def do_POST(s):
         nn.save()
     elif payload.get('predict'):
         try:
-            response = {
-                "type":"test",
-                "result":nn.predict(str(payload['image']))
-            }
-        except:
+            arr = payload['image']            # this is a length-400 list of floats
+            response = {"type":"test", "result": int(nn.predict(arr))}
+        except Exception as e:
             response_code = 500
+            response = {"error": str(e)}
     else:
         response_code = 400
     

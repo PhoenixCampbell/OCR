@@ -1,100 +1,97 @@
-var ocrDemo = {
-    CANVAS_WIDTH: 200,
-    TRANSLATED_WIDTH: 20,
-    PIXEL_WIDTH: 10, //TRANSLATED=CANVAS/PIXEL
-    drawGrid: function(ctx){
-        for (varx=this.PIXEL_WIDTH, y=this.PIXEL_WIDTH;
-                x<this.CANVAS_WIDTH; x+=this.PIXEL_WIDTH,
-                y+=this.PIXEL_WIDTH){
-                    ctx.strokeStyle = this.Blue;
-                    ctx.beginPath();
-                    ctx.moveTo(x,0);
-                    ctx.lineTo(x, this.CANVAS_WIDTH);
-                    SVGTextContentElement.stroke();
+const ocrDemo = (() => {
+  let canvas, ctx, drawing = false, last = null;
 
-                    ctx.beginPath();
-                    ctx.moveTo(0,y);
-                    ctx.lineTo(this.CANVAS_WIDTH, y);
-                    ctx.stroke();
-                }
-    },
-    onMouseMove: function(e, ctx, canvas){
-        if(!canvas.isDrawing){
-            return;
-        }
-        this.fillSquare(ctx,
-            e.clientX - canvas.offsetLeft, e.clientY-canvas.offsetTop);
-    },
-    onMouseDown: function(e ,ctx, canvas){
-        canvas.isDrawing = true;
-        this.fillSquare(ctx,
-            e.clientX-canvas.offsetLeft, e.clientY-canvas.offsetTop);
-    },
-    onMouseUp: function(e, ctx, canvas){
-        canvas.isDrawing = false;
-    },
-    fillSquare: function(ctx, x, y){
-        var xPixel = Math.floor(x/this.PIXEL_WIDTH);
-        var yPixel = Math.floor(y/this.PIXEL_WIDTH);
-        this.data[((xPixel -1) * this.TRANSLATED_WIDTH + yPixel) -1] =1;
+  function onLoadFunction() {
+    canvas = document.getElementById('canvas');
+    ctx = canvas.getContext('2d');
+    ctx.lineWidth = 16;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.fillStyle = 'white';
+    ctx.strokeStyle = 'black';
 
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(xPixel * this.PIXEL_WIDTH, yPixel * this.PIXEL_WIDTH,
-            this.PIXEL_WIDTH, this.PIXEL_WIDTH);
-    },
-    train: function(){
-        var digitVal = document.getElementById("digit").ariaValueMax;
-        if(!digitVal || this.data.indexOf(1) < 0){
-            alert("Please type and draw a digit value in order to train the network");
-            return;
-        }
-        this.trainArray.push({"y0": this.data, "label": parseInt(digitVal)});
-        this.trainingRequestCount++;
+    // white background so downscaling works
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        //send training batch to server
-        if (this.trainingRequestCount == this.BATCH_SIZE){
-            alert("Sending training data to server...");
-            var json = {
-                trainArray: this.trainArray,
-                train: true
-            };
-            this.sendData(json);
-            this.trainingRequestCount = 0;
-            this.trainArray = [];
-        }
-    },
-    test: function(){
-        if (this.data.indexOf(1) < 0){
-            alert("Please draw a digit in order to test the network");
-            return;
-        }
-        var json = {
-            image: this.data,
-            predict: true
-        };
-        this.sendData(json);
-    },
-    receiveResponse: function(xmlHttp){
-        if (xmlHttp.status != 200){
-            alert("Server returned staus " + xmlHttp.status);
-            return;
-        }
-        var responseJSON = JSON.parse(xmlHttp.responseText);
-        if (cmlHeep.responeText && responseJSON.type == "test"){
-            alert("The neral network predicts you wrote a \'"
-                + responseJSON.result + '\'');
-        }
-    },
-    onError: function(e){
-        alert("Error occurred while connecting to server: " + e.target.statusText);
-    },
-    sendData: function(json){
-        var xmlHttp = new XMLHttpRequest();
-        xmlHttp.open('POST', this.HOST + ":" +this.PORT, false);
-        xmlHttp.onload = function(){ this.receiveResponse(xmlHttp)}.bind(this);
-        var msg = JSON.stringify(json);
-        xmlHttp.setRequestHeader('Content-length', msg.length);
-        xmlHttp.setRequestHeader("Connection", "close");
-        xmlHttp.send(msg);
+    // mouse
+    canvas.addEventListener('mousedown', e => { drawing = true; last = pos(e); });
+    window.addEventListener('mouseup', () => drawing = false);
+    canvas.addEventListener('mousemove', e => drawTo(e));
+
+    // touch
+    canvas.addEventListener('touchstart', e => { e.preventDefault(); drawing = true; last = pos(e.touches[0]); });
+    canvas.addEventListener('touchend', () => drawing = false);
+    canvas.addEventListener('touchmove', e => { e.preventDefault(); drawTo(e.touches[0]); });
+
+    // expose API to buttons
+    window.ocrDemo = { onLoadFunction, train, test, resetCanvas };
+  }
+
+  function pos(e) {
+    const r = canvas.getBoundingClientRect();
+    return { x: (e.clientX - r.left) * (canvas.width / r.width),
+             y: (e.clientY - r.top) * (canvas.height / r.height) };
+  }
+
+  function drawTo(e) {
+    if (!drawing) return;
+    const p = pos(e);
+    ctx.beginPath();
+    ctx.moveTo(last.x, last.y);
+    ctx.lineTo(p.x, p.y);
+    ctx.stroke();
+    last = p;
+  }
+
+  function resetCanvas() {
+    ctx.fillStyle = 'white';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = 'white';
+  }
+
+  // Downscale to 20x20 grayscale [0,1] (black ink ~1)
+  function get20x20() {
+    const tmp = document.createElement('canvas');
+    tmp.width = 20; tmp.height = 20;
+    const tctx = tmp.getContext('2d');
+
+    // draw with high-quality sampling
+    tctx.fillStyle = 'white'; tctx.fillRect(0, 0, 20, 20);
+    tctx.drawImage(canvas, 0, 0, 20, 20);
+
+    const { data } = tctx.getImageData(0, 0, 20, 20);
+    const out = [];
+    for (let i = 0; i < data.length; i += 4) {
+      const r = data[i], g = data[i+1], b = data[i+2];
+      // grayscale and invert so black strokes ≈ 1.0
+      const gray = (0.299*r + 0.587*g + 0.114*b) / 255;
+      out.push(1 - gray);
     }
-}
+    return out; // length 400
+  }
+
+  async function train() {
+    const label = document.getElementById('digit').value.trim();
+    if (!/^\d$/.test(label)) { alert('Enter a single digit (0–9)'); return; }
+    const pixels = get20x20();
+    await fetch('/ocr', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ train: true, trainArray: [{ y0: pixels, label: Number(label) }] })
+    });
+    alert('Trained 1 sample');
+  }
+
+  async function test() {
+    const pixels = get20x20();
+    const res = await fetch('/ocr', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ predict: true, image: pixels })
+    });
+    const json = await res.json();
+    alert('Prediction: ' + json.result);
+  }
+
+  return { onLoadFunction, train, test, resetCanvas };
+})();
